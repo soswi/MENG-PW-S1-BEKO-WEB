@@ -2715,3 +2715,157 @@
 2026-05-11 18:07:54,073 [INFO] radio: 📡 [SYM] Telemetria: azymut=150°
 2026-05-11 18:07:56,075 [INFO] radio: Odebrano (RSSI=-75): SND:1,RCV:0,T:2,N:999,D:{'azimuth': 165, 'rssi': -75}
 2026-05-11 18:07:56,076 [INFO] radio: 📡 [SYM] Telemetria: azymut=165°
+2026-05-13 02:49:06,854 [INFO] beko.radio: TX seq loaded: saved=285 → starting at 305
+2026-05-13 02:49:06,874 [INFO] __main__: ╔════════════════════════════════════════════════════════╗
+2026-05-13 02:49:06,875 [INFO] __main__: ║     SYSTEM BEKO — Backend Rotor Antenowy               ║
+2026-05-13 02:49:06,876 [INFO] __main__: ╚════════════════════════════════════════════════════════╝
+2026-05-13 02:49:06,876 [INFO] __main__: Radio root: /home/centrala/rfm95/MENG-PW-S1-BEKO-RASPBERRY
+2026-05-13 02:49:06,877 [INFO] __main__: Web root  : /home/centrala/MENG-PW-S1-BEKO-WEB/rotor
+2026-05-13 02:49:06,878 [INFO] __main__: Log file  : /home/centrala/MENG-PW-S1-BEKO-WEB/rotor/logs/events.log
+2026-05-13 02:49:06,878 [INFO] __main__: Starting RadioController (FSK 868 MHz)...
+2026-05-13 02:49:06,879 [INFO] beko.radio: RadioController starting…
+2026-05-13 02:49:06,921 [INFO] beko.radio: RadioController ready (FSK 868 MHz)
+2026-05-13 02:49:06,922 [INFO] __main__: Flask starting on 127.0.0.1:5000  (threaded)
+2026-05-13 02:49:06,944 [INFO] werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-05-13 02:49:06,944 [INFO] werkzeug: [33mPress CTRL+C to quit[0m
+2026-05-13 02:55:45,996 [INFO] werkzeug: 127.0.0.1 - - [13/May/2026 02:55:45] "GET /api/status HTTP/1.0" 200 -
+2026-05-13 02:55:56,985 [INFO] werkzeug: 127.0.0.1 - - [13/May/2026 02:55:56] "GET /api/status HTTP/1.0" 200 -
+2026-05-13 02:55:57,134 [INFO] werkzeug: 127.0.0.1 - - [13/May/2026 02:55:57] "GET /api/status HTTP/1.0" 200 -
+2026-05-13 02:55:57,632 [INFO] werkzeug: 127.0.0.1 - - [13/May/2026 02:55:57] "GET /api/status HTTP/1.0" 200 -
+2026-05-13 02:55:58,134 [INFO] werkzeug: 127.0.0.1 - - [13/May/2026 02:55:58] "GET /api/status HTTP/1.0" 200 -
+2026-05-13 02:55:58,230 [ERROR] app: Exception on / [GET]
+Traceback (most recent call last):
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/rotor/backend/app.py", line 59, in index
+    return render_template("index.html")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 66, in get_source
+    return self._get_source_fast(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 100, in _get_source_fast
+    raise TemplateNotFound(template)
+jinja2.exceptions.TemplateNotFound: index.html
+2026-05-13 02:55:58,256 [INFO] werkzeug: 127.0.0.1 - - [13/May/2026 02:55:58] "[35m[1mGET / HTTP/1.0[0m" 500 -
+2026-05-13 02:55:59,242 [ERROR] app: Exception on / [GET]
+Traceback (most recent call last):
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/rotor/backend/app.py", line 59, in index
+    return render_template("index.html")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 66, in get_source
+    return self._get_source_fast(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 100, in _get_source_fast
+    raise TemplateNotFound(template)
+jinja2.exceptions.TemplateNotFound: index.html
+2026-05-13 02:55:59,256 [INFO] werkzeug: 127.0.0.1 - - [13/May/2026 02:55:59] "[35m[1mGET / HTTP/1.0[0m" 500 -
+2026-05-13 02:56:19,015 [INFO] __main__: Shutting down RadioController...
+2026-05-13 02:56:19,119 [INFO] beko.radio: RadioController stopped
+2026-05-13 02:56:23,455 [INFO] beko.radio: TX seq loaded: saved=285 → starting at 305
+2026-05-13 02:56:23,472 [INFO] __main__: ╔════════════════════════════════════════════════════════╗
+2026-05-13 02:56:23,473 [INFO] __main__: ║     SYSTEM BEKO — Backend Rotor Antenowy               ║
+2026-05-13 02:56:23,473 [INFO] __main__: ╚════════════════════════════════════════════════════════╝
+2026-05-13 02:56:23,473 [INFO] __main__: Radio root: /home/centrala/rfm95/MENG-PW-S1-BEKO-RASPBERRY
+2026-05-13 02:56:23,474 [INFO] __main__: Web root  : /home/centrala/MENG-PW-S1-BEKO-WEB/rotor
+2026-05-13 02:56:23,474 [INFO] __main__: Log file  : /home/centrala/MENG-PW-S1-BEKO-WEB/rotor/logs/events.log
+2026-05-13 02:56:23,474 [INFO] __main__: Starting RadioController (FSK 868 MHz)...
+2026-05-13 02:56:23,475 [INFO] beko.radio: RadioController starting…
+2026-05-13 02:56:23,517 [INFO] beko.radio: RadioController ready (FSK 868 MHz)
+2026-05-13 02:56:23,517 [INFO] __main__: Flask starting on 127.0.0.1:5000  (threaded)
+2026-05-13 02:56:23,539 [INFO] werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-05-13 02:56:23,540 [INFO] werkzeug: [33mPress CTRL+C to quit[0m
+2026-05-13 02:56:26,944 [ERROR] app: Exception on / [GET]
+Traceback (most recent call last):
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 1511, in wsgi_app
+    response = self.full_dispatch_request()
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 919, in full_dispatch_request
+    rv = self.handle_user_exception(e)
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 917, in full_dispatch_request
+    rv = self.dispatch_request()
+         ^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/app.py", line 902, in dispatch_request
+    return self.ensure_sync(self.view_functions[rule.endpoint])(**view_args)  # type: ignore[no-any-return]
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/rotor/backend/app.py", line 59, in index
+    return render_template("index.html")
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 150, in render_template
+    template = app.jinja_env.get_or_select_template(template_name_or_list)
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 1087, in get_or_select_template
+    return self.get_template(template_name_or_list, parent, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 1016, in get_template
+    return self._load_template(name, globals)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/environment.py", line 975, in _load_template
+    template = self.loader.load(self, name, self.make_globals(globals))
+               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/jinja2/loaders.py", line 126, in load
+    source, filename, uptodate = self.get_source(environment, name)
+                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 66, in get_source
+    return self._get_source_fast(environment, template)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/centrala/MENG-PW-S1-BEKO-WEB/venv/lib/python3.11/site-packages/flask/templating.py", line 100, in _get_source_fast
+    raise TemplateNotFound(template)
+jinja2.exceptions.TemplateNotFound: index.html
+2026-05-13 02:56:26,971 [INFO] werkzeug: 127.0.0.1 - - [13/May/2026 02:56:26] "[35m[1mGET / HTTP/1.0[0m" 500 -
+2026-05-13 02:58:23,246 [INFO] __main__: Shutting down RadioController...
+2026-05-13 02:58:23,352 [INFO] beko.radio: RadioController stopped
