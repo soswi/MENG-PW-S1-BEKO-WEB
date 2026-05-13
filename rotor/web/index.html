@@ -313,7 +313,7 @@
         <div class="panel-label">STATUS ŁĄCZA</div>
         <div class="status-row">
           <div class="status-dot" id="statusDot"></div>
-          <span id="statusText">ŁĄCZE AKTYWNE / LoRa 868 MHz</span>
+          <span id="statusText">ŁĄCZE AKTYWNE / FSK 868 MHz</span>
         </div>
       </div>
 
@@ -380,12 +380,13 @@
     const CY = COMPASS_SIZE / 2;
     const R  = 118;
 
-    let actualAngle = 0;
-    let targetAngle = 0;
-    let potAngle    = 0;
-    let blocked     = false;
-    let stopped     = false;
+    let actualAngle    = 0;
+    let targetAngle    = 0;
+    let potAngle       = 0;
+    let blocked        = false;
+    let stopped        = false;
     let animFrame;
+    let lastAlarmState = false;
 
     const canvas = document.getElementById('compassCanvas');
     const ctx    = canvas.getContext('2d');
@@ -418,14 +419,12 @@
       const c = getColors();
       ctx.clearRect(0, 0, COMPASS_SIZE, COMPASS_SIZE);
 
-      /* outer ring */
       ctx.beginPath();
       ctx.arc(CX, CY, R + 10, 0, Math.PI * 2);
       ctx.strokeStyle = c.ring;
       ctx.lineWidth = 1;
       ctx.stroke();
 
-      /* ticks */
       for (let deg = 0; deg < 360; deg += 5) {
         const rad    = (deg - 90) * Math.PI / 180;
         const isMaj  = deg % 30 === 0;
@@ -439,7 +438,6 @@
         ctx.stroke();
       }
 
-      /* cardinal labels */
       const dirs      = ['N','NE','E','SE','S','SW','W','NW'];
       const dirAngles = [0, 45, 90, 135, 180, 225, 270, 315];
       ctx.font        = '500 12px Barlow Condensed, sans-serif';
@@ -452,7 +450,6 @@
         ctx.fillText(dirs[i], CX + Math.cos(rad) * dist, CY + Math.sin(rad) * dist);
       });
 
-      /* target marker */
       const targetRad = (targetAngle - 90) * Math.PI / 180;
       ctx.beginPath();
       ctx.arc(CX, CY, R - 8, targetRad - 0.06, targetRad + 0.06);
@@ -466,7 +463,6 @@
       ctx.lineWidth   = 1.5;
       ctx.stroke();
 
-      /* potentiometer line */
       const potRad = (potAngle - 90) * Math.PI / 180;
       ctx.beginPath();
       ctx.moveTo(CX, CY);
@@ -475,7 +471,6 @@
       ctx.lineWidth   = 2;
       ctx.stroke();
 
-      /* main needle */
       const needleRad = (actualAngle - 90) * Math.PI / 180;
       const tipX  = CX + Math.cos(needleRad) * (R - 10);
       const tipY  = CY + Math.sin(needleRad) * (R - 10);
@@ -493,7 +488,6 @@
       ctx.fillStyle = c.needle;
       ctx.fill();
 
-      /* center dot */
       ctx.beginPath();
       ctx.arc(CX, CY, 5, 0, Math.PI * 2);
       ctx.fillStyle = c.center;
@@ -548,35 +542,43 @@
       cancelAnimationFrame(animFrame);
       targetAngle = ((deg % 360) + 360) % 360;
       addLog('CMD→' + formatDeg(targetAngle), 'ok');
-      setStatus('ok', 'ŁĄCZE AKTYWNE / LoRa 868 MHz');
+      setStatus('warn', 'WYSYŁANIE...');
       animate();
-    }
 
-    function nudge(delta) { goTo(targetAngle + delta); }
-
-    function goAbs() {
-      const v = parseInt(document.getElementById('absInput').value);
-      const node = parseInt(document.getElementById('nodeSelect').value);
-      if (isNaN(v) || v < 0 || v > 359) return;
-      
-      // Wyślij POST do backendu
       fetch('/api/command', {
-        method: 'POST',
+        method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ azimuth: v, node: node })
+        body:    JSON.stringify({ azimuth: targetAngle, op_code: 1 }),
       })
       .then(r => r.json())
       .then(data => {
         if (data.ok) {
-          goTo(v);
-          addLog(`CMD→${formatDeg(v)} (węzeł ${node})`, 'ok');
+          if (data.actual_angle !== null && data.actual_angle !== undefined) {
+            actualAngle = data.actual_angle;
+            potAngle    = data.actual_angle;
+          }
+          setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
+          addLog('OK→' + formatDeg(data.actual_angle) + ' srv=' + data.servo_status, 'ok');
         } else {
-          addLog(`Błąd: ${data.error}`, 'alarm');
+          setStatus('alarm', 'BŁĄD: ' + data.error);
+          addLog('ERR: ' + data.error, 'alarm');
         }
+        updateUI();
       })
       .catch(e => {
-        addLog(`Błąd sieciowy: ${e.message}`, 'alarm');
+        setStatus('warn', 'BŁĄD SIECI');
+        addLog('net err: ' + e.message, 'alarm');
       });
+    }
+
+    function nudge(delta) {
+      goTo(targetAngle + delta);
+    }
+
+    function goAbs() {
+      const v = parseInt(document.getElementById('absInput').value);
+      if (isNaN(v) || v < 0 || v > 359) return;
+      goTo(v);
     }
 
     function eStop() {
@@ -584,6 +586,10 @@
       cancelAnimationFrame(animFrame);
       setStatus('alarm', 'STOP AWARYJNY AKTYWNY');
       addLog('!!! STOP AWARYJNY', 'alarm');
+      fetch('/api/stop', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => { if (!data.ok) addLog('STOP ERR: ' + data.error, 'alarm'); })
+        .catch(e => addLog('STOP net err: ' + e.message, 'alarm'));
     }
 
     function testBlock() {
@@ -594,15 +600,31 @@
     }
 
     function clearAlarm() {
-      blocked = false;
-      stopped = false;
-      setStatus('ok', 'ŁĄCZE AKTYWNE / LoRa 868 MHz');
-      addLog('alarm skasowany', 'ok');
-      animate();
+      setStatus('warn', 'ODBLOKOWYWANIE...');
+      addLog('KASUJ ALARM → UNLOCK...', 'warn');
+      fetch('/api/alarm/clear', { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+          if (data.ok) {
+            blocked        = false;
+            stopped        = false;
+            lastAlarmState = false;
+            setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
+            addLog('alarm skasowany', 'ok');
+            animate();
+          } else {
+            setStatus('alarm', 'UNLOCK NIEUDANY: ' + data.error);
+            addLog('UNLOCK ERR: ' + data.error, 'alarm');
+          }
+        })
+        .catch(e => {
+          setStatus('warn', 'BŁĄD SIECI');
+          addLog('UNLOCK net err: ' + e.message, 'alarm');
+        });
     }
 
     function setStatus(type, text) {
-      document.getElementById('statusDot').className  = 'status-dot' + (type !== 'ok' ? ' ' + type : '');
+      document.getElementById('statusDot').className   = 'status-dot' + (type !== 'ok' ? ' ' + type : '');
       document.getElementById('statusText').textContent = text;
     }
 
@@ -618,7 +640,6 @@
         .join('');
     }
 
-    /* init */
     addLog('system uruchomiony', 'ok');
     addLog('węzeł BEKO-01 aktywny', 'ok');
     updateUI();
@@ -626,27 +647,42 @@
 
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawCompass);
 
-    // ── POLLING STATUSU Z BACKENDU ──
     setInterval(() => {
       fetch('/api/status')
         .then(r => r.json())
         .then(data => {
-          if (data.actual_azimuth !== undefined) {
-            actualAngle = data.actual_azimuth;
+          if (data.actual_angle !== null && data.actual_angle !== undefined) {
+            actualAngle = data.actual_angle;
+            potAngle    = data.actual_angle;
           }
-          if (data.target_azimuth !== undefined) {
-            targetAngle = data.target_azimuth;
+
+          if (data.alarm && !lastAlarmState) {
+            lastAlarmState = true;
+            stopped = true;
+            cancelAnimationFrame(animFrame);
+            setStatus('alarm', 'ALARM: ' + (data.alarm_msg || 'BŁĄD'));
+            addLog(
+              'ALARM: ' + (data.alarm_msg || '?') +
+              ' @ ' + formatDeg(data.alarm_angle || 0),
+              'alarm'
+            );
+          } else if (!data.alarm) {
+            lastAlarmState = false;
           }
-          if (data.node_online !== undefined) {
-            const status = data.node_online ? 'ok' : 'warn';
-            setStatus(status, data.node_online ? 'ŁĄCZE AKTYWNE / LoRa 868 MHz' : 'BRAK POŁĄCZENIA');
+
+          if (!data.alarm && !stopped && !blocked) {
+            if (data.state && data.state !== 'IDLE') {
+              setStatus('warn', 'WYSYŁANIE...');
+            } else if (data.link_ok) {
+              setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
+            } else {
+              setStatus('warn', 'BRAK POŁĄCZENIA');
+            }
           }
-          if (data.alarm) {
-            setStatus('alarm', 'ALARM: ' + data.alarm_msg);
-          }
+
           updateUI();
         })
-        .catch(e => console.warn('Błąd statusu:', e));
+        .catch(e => console.warn('Status poll error:', e));
     }, 500);
   </script>
 </body>
