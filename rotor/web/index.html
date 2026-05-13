@@ -359,6 +359,7 @@
           <button class="btn btn-wide btn-danger" onclick="eStop()">⬛ STOP AWARYJNY</button>
           <button class="btn" onclick="testBlock()">SIM. BLOKADA</button>
           <button class="btn" onclick="clearAlarm()">KASUJ ALARM</button>
+          <button class="btn btn-wide" id="restartBtn" onclick="restartBackend()" style="letter-spacing:0.1em;font-size:13px;">↺ RESTART SERWISU</button>
         </div>
       </div>
 
@@ -380,13 +381,15 @@
     const CY = COMPASS_SIZE / 2;
     const R  = 118;
 
-    let actualAngle    = 0;
-    let targetAngle    = 0;
-    let potAngle       = 0;
+    let confirmedAngle = 0;  // last angle acknowledged by STM32 TELEM
+    let actualAngle    = 0;  // compass needle — animates toward targetAngle
+    let targetAngle    = 0;  // operator's current setpoint
+    let potAngle       = 0;  // ADC reading from status poll — verification only
     let blocked        = false;
     let stopped        = false;
     let animFrame;
     let lastAlarmState = false;
+    let lastEventId    = 0;
 
     const canvas = document.getElementById('compassCanvas');
     const ctx    = canvas.getContext('2d');
@@ -419,12 +422,14 @@
       const c = getColors();
       ctx.clearRect(0, 0, COMPASS_SIZE, COMPASS_SIZE);
 
+      /* outer ring */
       ctx.beginPath();
       ctx.arc(CX, CY, R + 10, 0, Math.PI * 2);
       ctx.strokeStyle = c.ring;
       ctx.lineWidth = 1;
       ctx.stroke();
 
+      /* ticks */
       for (let deg = 0; deg < 360; deg += 5) {
         const rad    = (deg - 90) * Math.PI / 180;
         const isMaj  = deg % 30 === 0;
@@ -438,6 +443,7 @@
         ctx.stroke();
       }
 
+      /* cardinal labels */
       const dirs      = ['N','NE','E','SE','S','SW','W','NW'];
       const dirAngles = [0, 45, 90, 135, 180, 225, 270, 315];
       ctx.font        = '500 12px Barlow Condensed, sans-serif';
@@ -450,6 +456,7 @@
         ctx.fillText(dirs[i], CX + Math.cos(rad) * dist, CY + Math.sin(rad) * dist);
       });
 
+      /* target marker */
       const targetRad = (targetAngle - 90) * Math.PI / 180;
       ctx.beginPath();
       ctx.arc(CX, CY, R - 8, targetRad - 0.06, targetRad + 0.06);
@@ -463,6 +470,7 @@
       ctx.lineWidth   = 1.5;
       ctx.stroke();
 
+      /* potentiometer line */
       const potRad = (potAngle - 90) * Math.PI / 180;
       ctx.beginPath();
       ctx.moveTo(CX, CY);
@@ -471,6 +479,7 @@
       ctx.lineWidth   = 2;
       ctx.stroke();
 
+      /* main needle */
       const needleRad = (actualAngle - 90) * Math.PI / 180;
       const tipX  = CX + Math.cos(needleRad) * (R - 10);
       const tipY  = CY + Math.sin(needleRad) * (R - 10);
@@ -488,6 +497,7 @@
       ctx.fillStyle = c.needle;
       ctx.fill();
 
+      /* center dot */
       ctx.beginPath();
       ctx.arc(CX, CY, 5, 0, Math.PI * 2);
       ctx.fillStyle = c.center;
@@ -508,6 +518,7 @@
       badge.textContent = 'Δ ' + delta + '°';
       badge.className   = 'delta-badge' + (delta > 10 ? ' alarm' : '');
 
+      // ADC panel — potAngle mirrors actual_angle from TELEM
       const adcRaw   = Math.round(1200 + (potAngle / 180) * 10800);
       const adcDelta = Math.abs(Math.round(actualAngle) - Math.round(potAngle));
       document.getElementById('adcRaw').textContent   = adcRaw;
@@ -524,48 +535,62 @@
       const diff = ((targetAngle - actualAngle + 540) % 360) - 180;
       if (Math.abs(diff) < 0.5) {
         actualAngle = targetAngle;
-        potAngle    = actualAngle;
         updateUI();
         return;
       }
       const step  = Math.sign(diff) * Math.min(Math.abs(diff), 1.5);
       actualAngle = (actualAngle + step + 360) % 360;
-      potAngle    = actualAngle + (Math.random() - 0.5) * 1.5;
-      potAngle    = Math.max(0, Math.min(180, potAngle));
       updateUI();
       animFrame = requestAnimationFrame(animate);
     }
+
+    // ── Core command sender ────────────────────────────────────────────────────
+    // The compass needle shows confirmedAngle — the last setpoint acknowledged
+    // by STM32 TELEM. On a new command the needle animates toward targetAngle
+    // as a preview. If TELEM never arrives (timeout / ALARM) the needle reverts
+    // to confirmedAngle. ADC actual_angle from the status poll is verification
+    // only and never drives the compass needle.
 
     function goTo(deg) {
       if (stopped) return;
       blocked = false;
       cancelAnimationFrame(animFrame);
+      const prevConfirmed = confirmedAngle;
       targetAngle = ((deg % 360) + 360) % 360;
       addLog('CMD→' + formatDeg(targetAngle), 'ok');
       setStatus('warn', 'WYSYŁANIE...');
-      animate();
+      animate();  // preview — needle moves toward targetAngle while we wait
 
+      const sentTarget = targetAngle;  // capture in case nudge fires again mid-flight
       fetch('/api/command', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ azimuth: targetAngle, op_code: 1 }),
+        body:    JSON.stringify({ azimuth: sentTarget, op_code: 1 }),
       })
       .then(r => r.json())
       .then(data => {
         if (data.ok) {
+          // TELEM confirmed — accept operator setpoint as the real angle
+          confirmedAngle = sentTarget;
           if (data.actual_angle !== null && data.actual_angle !== undefined) {
-            actualAngle = data.actual_angle;
-            potAngle    = data.actual_angle;
+            potAngle = data.actual_angle;  // ADC reading → verification panel only
           }
           setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
-          addLog('OK→' + formatDeg(data.actual_angle) + ' srv=' + data.servo_status, 'ok');
+          // result logged via backend event "TELEM ←"
         } else {
+          // No confirmation — revert needle to last confirmed position
+          targetAngle = prevConfirmed;
+          cancelAnimationFrame(animFrame);
+          animate();
           setStatus('alarm', 'BŁĄD: ' + data.error);
-          addLog('ERR: ' + data.error, 'alarm');
+          // error logged via backend event "ERR:" or "ALARM ←"
         }
         updateUI();
       })
       .catch(e => {
+        targetAngle = prevConfirmed;
+        cancelAnimationFrame(animFrame);
+        animate();
         setStatus('warn', 'BŁĄD SIECI');
         addLog('net err: ' + e.message, 'alarm');
       });
@@ -609,12 +634,20 @@
             blocked        = false;
             stopped        = false;
             lastAlarmState = false;
+            // After UNLOCK the STM32 reports its real position via TELEM.
+            // Sync both confirmed and target so the needle stays put.
+            if (data.actual_angle !== null && data.actual_angle !== undefined) {
+              confirmedAngle = data.actual_angle;
+              targetAngle    = data.actual_angle;
+              actualAngle    = data.actual_angle;
+              potAngle       = data.actual_angle;
+            }
             setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
-            addLog('alarm skasowany', 'ok');
             animate();
+            // result logged via backend event "UNLOCK OK ←"
           } else {
             setStatus('alarm', 'UNLOCK NIEUDANY: ' + data.error);
-            addLog('UNLOCK ERR: ' + data.error, 'alarm');
+            // failure logged via backend event "UNLOCK FAIL:"
           }
         })
         .catch(e => {
@@ -626,6 +659,38 @@
     function setStatus(type, text) {
       document.getElementById('statusDot').className   = 'status-dot' + (type !== 'ok' ? ' ' + type : '');
       document.getElementById('statusText').textContent = text;
+    }
+
+    let _restartPollTimer = null;
+
+    function restartBackend() {
+      if (!confirm('Restart serwisu beko-web?\nSerwis zostanie ponownie uruchomiony (~5s przerwy.')) return;
+      const btn = document.getElementById('restartBtn');
+      btn.disabled = true;
+      btn.textContent = '↺ RESTARTUJĘ...';
+      setStatus('warn', 'RESTART — czekam na wznowienie...');
+      addLog('RESTART → serwis wyłącza się…', 'warn');
+
+      fetch('/api/restart', { method: 'POST' })
+        .catch(() => {})  // server may die before response arrives — that's fine
+        .finally(() => {
+          // Start polling every 1 s until the server responds to /api/status
+          if (_restartPollTimer) clearInterval(_restartPollTimer);
+          _restartPollTimer = setInterval(() => {
+            fetch('/api/status?after=0')
+              .then(r => r.json())
+              .then(() => {
+                clearInterval(_restartPollTimer);
+                _restartPollTimer = null;
+                lastEventId = 0;  // reset so we pick up fresh events from the new process
+                btn.disabled = false;
+                btn.textContent = '↺ RESTART SERWISU';
+                setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
+                addLog('RESTART OK — serwis wznowiony', 'ok');
+              })
+              .catch(() => {});  // still down — keep polling
+          }, 1000);
+        });
     }
 
     let logLines = [];
@@ -640,6 +705,7 @@
         .join('');
     }
 
+    /* init */
     addLog('system uruchomiony', 'ok');
     addLog('węzeł BEKO-01 aktywny', 'ok');
     updateUI();
@@ -647,29 +713,34 @@
 
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawCompass);
 
+    // ── Status polling (500 ms) ────────────────────────────────────────────────
     setInterval(() => {
-      fetch('/api/status')
+      fetch('/api/status?after=' + lastEventId)
         .then(r => r.json())
         .then(data => {
+          // ADC reading — verification panel only, does NOT drive the compass needle
           if (data.actual_angle !== null && data.actual_angle !== undefined) {
-            actualAngle = data.actual_angle;
-            potAngle    = data.actual_angle;
+            potAngle = data.actual_angle;
           }
 
+          // Append backend events to the log panel
+          (data.events || []).forEach(e => {
+            addLog(e.msg, e.kind);
+            if (e.id > lastEventId) lastEventId = e.id;
+          });
+
+          // Edge-detect alarm for status dot + stopped flag
+          // (the log entry itself comes via backend event)
           if (data.alarm && !lastAlarmState) {
             lastAlarmState = true;
             stopped = true;
             cancelAnimationFrame(animFrame);
             setStatus('alarm', 'ALARM: ' + (data.alarm_msg || 'BŁĄD'));
-            addLog(
-              'ALARM: ' + (data.alarm_msg || '?') +
-              ' @ ' + formatDeg(data.alarm_angle || 0),
-              'alarm'
-            );
           } else if (!data.alarm) {
             lastAlarmState = false;
           }
 
+          // Update status indicator only when not in a user-triggered state
           if (!data.alarm && !stopped && !blocked) {
             if (data.state && data.state !== 'IDLE') {
               setStatus('warn', 'WYSYŁANIE...');
