@@ -1,0 +1,14 @@
+2026-05-11 14:09:24,624 [INFO] beko.main: BEKO central station starting…
+2026-05-11 14:09:24,625 [INFO] beko.radio: RadioController starting…
+2026-05-11 14:09:24,682 [INFO] beko.radio: RadioController ready (FSK 868 MHz)
+2026-05-11 14:09:24,729 [INFO] werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-05-11 14:09:24,730 [INFO] werkzeug: [33mPress CTRL+C to quit[0m
+2026-05-11 14:11:35,200 [INFO] beko.radio: RadioController stopped
+2026-05-11 14:11:37,834 [INFO] beko.main: BEKO central station starting…
+2026-05-11 14:11:37,835 [INFO] beko.radio: RadioController starting…
+2026-05-11 14:11:37,877 [INFO] beko.radio: RadioController ready (FSK 868 MHz)
+2026-05-11 14:11:37,899 [INFO] werkzeug: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5000
+2026-05-11 14:11:37,900 [INFO] werkzeug: [33mPress CTRL+C to quit[0m
+2026-05-11 14:11:42,809 [INFO] beko.radio: RadioController stopped
