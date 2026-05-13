@@ -55,6 +55,7 @@
       margin: 0 auto;
     }
 
+    /* ── HEADER ── */
     .header {
       border-bottom: 1px solid var(--border2);
       padding-bottom: 0.75rem;
@@ -87,6 +88,7 @@
       margin-top: 4px;
     }
 
+    /* ── LAYOUT ── */
     .main-grid {
       display: grid;
       grid-template-columns: 1fr 260px;
@@ -98,6 +100,7 @@
       .main-grid { grid-template-columns: 1fr; }
     }
 
+    /* ── COMPASS ── */
     .compass-area {
       display: flex;
       flex-direction: column;
@@ -143,6 +146,7 @@
     }
     .delta-badge.alarm { border-color: var(--red); color: var(--red); }
 
+    /* ── LOG ── */
     .log-area {
       width: 100%;
       border: 0.5px solid var(--border);
@@ -171,6 +175,7 @@
     .log-entry.warn  { color: var(--amber); }
     .log-entry.ok    { color: var(--green); }
 
+    /* ── CONTROLS ── */
     .controls-panel {
       display: flex;
       flex-direction: column;
@@ -232,6 +237,7 @@
     .go-btn:hover  { opacity: 0.8; }
     .go-btn:active { transform: scale(0.97); }
 
+    /* ── STATUS ── */
     .status-row {
       display: flex;
       align-items: center;
@@ -253,6 +259,7 @@
     @keyframes pulse-ok   { 0%,100%{opacity:1} 50%{opacity:.4} }
     @keyframes pulse-warn { 0%,100%{opacity:1} 50%{opacity:.2} }
 
+    /* ── ADC block ── */
     .adc-data {
       font-family: 'Share Tech Mono', monospace;
       font-size: 12px;
@@ -276,6 +283,7 @@
 
   <div class="main-grid">
 
+    <!-- LEFT: compass + readouts + log -->
     <div class="compass-area">
       <canvas id="compassCanvas" width="280" height="280"></canvas>
 
@@ -298,6 +306,7 @@
       </div>
     </div>
 
+    <!-- RIGHT: controls -->
     <div class="controls-panel">
 
       <div class="panel-block">
@@ -354,6 +363,11 @@
       </div>
 
       <div class="panel-block">
+        <div class="panel-label">SERWIS</div>
+        <button class="btn btn-wide" id="restartBtn" onclick="restartBackend()" style="width:100%;letter-spacing:0.1em;font-size:13px;padding:9px 0;">↺ RESTART SERWISU</button>
+      </div>
+
+      <div class="panel-block">
         <div class="panel-label">POTENCJOMETR ADC</div>
         <div class="adc-data">
           <div>RAW: <span id="adcRaw">--</span></div>
@@ -371,9 +385,10 @@
     const CY = COMPASS_SIZE / 2;
     const R  = 118;
 
-    let actualAngle    = 0;
-    let targetAngle    = 0;
-    let potAngle       = 0;
+    let confirmedAngle = 0;  // last angle acknowledged by STM32 TELEM
+    let actualAngle    = 0;  // compass needle — animates toward targetAngle
+    let targetAngle    = 0;  // operator's current setpoint
+    let potAngle       = 0;  // ADC reading from status poll — verification only
     let blocked        = false;
     let stopped        = false;
     let animFrame;
@@ -387,23 +402,23 @@
 
     function getColors() {
       return isDark() ? {
-        ring:    'rgba(255,255,255,0.10)',
-        tick:    'rgba(255,255,255,0.22)',
-        tickMaj: 'rgba(255,255,255,0.50)',
-        label:   'rgba(255,255,255,0.50)',
-        needle:  '#f0ede8',
-        target:  'rgba(255,255,255,0.22)',
-        center:  '#f0ede8',
-        pot:     'rgba(93,202,165,0.75)',
+        ring:      'rgba(255,255,255,0.10)',
+        tick:      'rgba(255,255,255,0.22)',
+        tickMaj:   'rgba(255,255,255,0.50)',
+        label:     'rgba(255,255,255,0.50)',
+        needle:    '#f0ede8',
+        target:    'rgba(255,255,255,0.22)',
+        center:    '#f0ede8',
+        pot:       'rgba(93,202,165,0.75)',
       } : {
-        ring:    'rgba(0,0,0,0.08)',
-        tick:    'rgba(0,0,0,0.18)',
-        tickMaj: 'rgba(0,0,0,0.50)',
-        label:   'rgba(0,0,0,0.48)',
-        needle:  '#111111',
-        target:  'rgba(0,0,0,0.18)',
-        center:  '#111111',
-        pot:     'rgba(15,110,86,0.72)',
+        ring:      'rgba(0,0,0,0.08)',
+        tick:      'rgba(0,0,0,0.18)',
+        tickMaj:   'rgba(0,0,0,0.50)',
+        label:     'rgba(0,0,0,0.48)',
+        needle:    '#111111',
+        target:    'rgba(0,0,0,0.18)',
+        center:    '#111111',
+        pot:       'rgba(15,110,86,0.72)',
       };
     }
 
@@ -411,15 +426,19 @@
       const c = getColors();
       ctx.clearRect(0, 0, COMPASS_SIZE, COMPASS_SIZE);
 
+      /* outer ring */
       ctx.beginPath();
       ctx.arc(CX, CY, R + 10, 0, Math.PI * 2);
-      ctx.strokeStyle = c.ring; ctx.lineWidth = 1; ctx.stroke();
+      ctx.strokeStyle = c.ring;
+      ctx.lineWidth = 1;
+      ctx.stroke();
 
+      /* ticks */
       for (let deg = 0; deg < 360; deg += 5) {
-        const rad   = (deg - 90) * Math.PI / 180;
-        const isMaj = deg % 30 === 0;
-        const isMed = deg % 10 === 0;
-        const inner = R - (isMaj ? 14 : isMed ? 8 : 4);
+        const rad    = (deg - 90) * Math.PI / 180;
+        const isMaj  = deg % 30 === 0;
+        const isMed  = deg % 10 === 0;
+        const inner  = R - (isMaj ? 14 : isMed ? 8 : 4);
         ctx.beginPath();
         ctx.moveTo(CX + Math.cos(rad) * inner, CY + Math.sin(rad) * inner);
         ctx.lineTo(CX + Math.cos(rad) * R,     CY + Math.sin(rad) * R);
@@ -428,49 +447,65 @@
         ctx.stroke();
       }
 
+      /* cardinal labels */
       const dirs      = ['N','NE','E','SE','S','SW','W','NW'];
-      const dirAngles = [0,45,90,135,180,225,270,315];
-      ctx.font = '500 12px Barlow Condensed, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const dirAngles = [0, 45, 90, 135, 180, 225, 270, 315];
+      ctx.font        = '500 12px Barlow Condensed, sans-serif';
+      ctx.textAlign   = 'center';
+      ctx.textBaseline = 'middle';
       dirAngles.forEach((deg, i) => {
-        const rad = (deg - 90) * Math.PI / 180;
+        const rad  = (deg - 90) * Math.PI / 180;
+        const dist = R - 26;
         ctx.fillStyle = (i % 2 === 0) ? c.tickMaj : c.label;
-        ctx.fillText(dirs[i], CX + Math.cos(rad) * (R - 26), CY + Math.sin(rad) * (R - 26));
+        ctx.fillText(dirs[i], CX + Math.cos(rad) * dist, CY + Math.sin(rad) * dist);
       });
 
-      const tRad = (targetAngle - 90) * Math.PI / 180;
+      /* target marker */
+      const targetRad = (targetAngle - 90) * Math.PI / 180;
       ctx.beginPath();
-      ctx.arc(CX, CY, R - 8, tRad - 0.06, tRad + 0.06);
-      ctx.strokeStyle = c.target; ctx.lineWidth = 8; ctx.stroke();
+      ctx.arc(CX, CY, R - 8, targetRad - 0.06, targetRad + 0.06);
+      ctx.strokeStyle = c.target;
+      ctx.lineWidth   = 8;
+      ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(CX + Math.cos(tRad) * (R - 20), CY + Math.sin(tRad) * (R - 20));
-      ctx.lineTo(CX + Math.cos(tRad) * (R + 8),  CY + Math.sin(tRad) * (R + 8));
-      ctx.strokeStyle = c.target; ctx.lineWidth = 1.5; ctx.stroke();
+      ctx.moveTo(CX + Math.cos(targetRad) * (R - 20), CY + Math.sin(targetRad) * (R - 20));
+      ctx.lineTo(CX + Math.cos(targetRad) * (R + 8),  CY + Math.sin(targetRad) * (R + 8));
+      ctx.strokeStyle = c.target;
+      ctx.lineWidth   = 1.5;
+      ctx.stroke();
 
-      const pRad = (potAngle - 90) * Math.PI / 180;
+      /* potentiometer line */
+      const potRad = (potAngle - 90) * Math.PI / 180;
       ctx.beginPath();
       ctx.moveTo(CX, CY);
-      ctx.lineTo(CX + Math.cos(pRad) * (R - 30), CY + Math.sin(pRad) * (R - 30));
-      ctx.strokeStyle = c.pot; ctx.lineWidth = 2; ctx.stroke();
+      ctx.lineTo(CX + Math.cos(potRad) * (R - 30), CY + Math.sin(potRad) * (R - 30));
+      ctx.strokeStyle = c.pot;
+      ctx.lineWidth   = 2;
+      ctx.stroke();
 
-      const nRad  = (actualAngle - 90) * Math.PI / 180;
-      const tipX  = CX + Math.cos(nRad) * (R - 10);
-      const tipY  = CY + Math.sin(nRad) * (R - 10);
-      const backX = CX + Math.cos(nRad + Math.PI) * 20;
-      const backY = CY + Math.sin(nRad + Math.PI) * 20;
-      const perpX = Math.cos(nRad + Math.PI / 2) * 6;
-      const perpY = Math.sin(nRad + Math.PI / 2) * 6;
+      /* main needle */
+      const needleRad = (actualAngle - 90) * Math.PI / 180;
+      const tipX  = CX + Math.cos(needleRad) * (R - 10);
+      const tipY  = CY + Math.sin(needleRad) * (R - 10);
+      const backX = CX + Math.cos(needleRad + Math.PI) * 20;
+      const backY = CY + Math.sin(needleRad + Math.PI) * 20;
+      const perpX = Math.cos(needleRad + Math.PI / 2) * 6;
+      const perpY = Math.sin(needleRad + Math.PI / 2) * 6;
+
       ctx.beginPath();
       ctx.moveTo(tipX, tipY);
       ctx.lineTo(CX + perpX, CY + perpY);
       ctx.lineTo(backX, backY);
       ctx.lineTo(CX - perpX, CY - perpY);
       ctx.closePath();
-      ctx.fillStyle = c.needle; ctx.fill();
+      ctx.fillStyle = c.needle;
+      ctx.fill();
 
+      /* center dot */
       ctx.beginPath();
       ctx.arc(CX, CY, 5, 0, Math.PI * 2);
-      ctx.fillStyle = c.center; ctx.fill();
+      ctx.fillStyle = c.center;
+      ctx.fill();
     }
 
     function formatDeg(n) {
@@ -487,10 +522,10 @@
       badge.textContent = 'Δ ' + delta + '°';
       badge.className   = 'delta-badge' + (delta > 10 ? ' alarm' : '');
 
-      const adcRaw   = Math.round(1200 + (potAngle / 180) * 10800);
-      const adcDelta = Math.abs(Math.round(actualAngle) - Math.round(potAngle));
-      document.getElementById('adcRaw').textContent   = adcRaw;
-      document.getElementById('adcAngle').textContent = Math.round(potAngle);
+      // ADC panel — shows last TELEM-reported position, frozen between commands
+      const adcDelta = Math.abs(Math.round(confirmedAngle) - Math.round(potAngle));
+      document.getElementById('adcRaw').textContent   = potAngle !== null ? Math.round(potAngle) + '°' : '--';
+      document.getElementById('adcAngle').textContent = potAngle !== null ? Math.round(potAngle) : '--';
       const adcEl = document.getElementById('adcDelta');
       adcEl.textContent = adcDelta;
       adcEl.className   = adcDelta > 10 ? 'alarm' : '';
@@ -498,54 +533,47 @@
       drawCompass();
     }
 
-    function animate() {
-      if (stopped || blocked) return;
-      const diff = ((targetAngle - actualAngle + 540) % 360) - 180;
-      if (Math.abs(diff) < 0.5) {
-        actualAngle = targetAngle; potAngle = actualAngle; updateUI(); return;
-      }
-      const step  = Math.sign(diff) * Math.min(Math.abs(diff), 1.5);
-      actualAngle = (actualAngle + step + 360) % 360;
-      potAngle    = actualAngle + (Math.random() - 0.5) * 1.5;
-      potAngle    = Math.max(0, Math.min(180, potAngle));
+    function setAngle(deg) {
+      confirmedAngle = ((deg % 360) + 360) % 360;
+      targetAngle    = confirmedAngle;
+      actualAngle    = confirmedAngle;
       updateUI();
-      animFrame = requestAnimationFrame(animate);
     }
 
     function goTo(deg) {
       if (stopped) return;
-      blocked = false;
-      cancelAnimationFrame(animFrame);
-      targetAngle = ((deg % 360) + 360) % 360;
-      addLog('CMD→' + formatDeg(targetAngle), 'ok');
+      const prevConfirmed = confirmedAngle;
+      const sentTarget    = ((deg % 360) + 360) % 360;
+      addLog('CMD→' + formatDeg(sentTarget), 'ok');
       setStatus('warn', 'WYSYŁANIE...');
-      animate();
 
       fetch('/api/command', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ azimuth: targetAngle, op_code: 1 }),
+        body:    JSON.stringify({ azimuth: sentTarget, op_code: 1 }),
       })
       .then(r => r.json())
       .then(data => {
         if (data.ok) {
-          if (data.actual_angle !== null && data.actual_angle !== undefined) {
-            actualAngle = data.actual_angle;
-            potAngle    = data.actual_angle;
-          }
+          setAngle(sentTarget);
+          if (data.actual_angle !== null && data.actual_angle !== undefined)
+            potAngle = data.actual_angle;
           setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
         } else {
+          setAngle(prevConfirmed);
           setStatus('alarm', 'BŁĄD: ' + data.error);
         }
-        updateUI();
       })
       .catch(e => {
+        setAngle(prevConfirmed);
         setStatus('warn', 'BŁĄD SIECI');
         addLog('net err: ' + e.message, 'alarm');
       });
     }
 
-    function nudge(delta)  { goTo(targetAngle + delta); }
+    function nudge(delta) {
+      goTo(confirmedAngle + delta);
+    }
 
     function goAbs() {
       const v = parseInt(document.getElementById('absInput').value);
@@ -578,11 +606,22 @@
         .then(r => r.json())
         .then(data => {
           if (data.ok) {
-            blocked = false; stopped = false; lastAlarmState = false;
+            blocked        = false;
+            stopped        = false;
+            lastAlarmState = false;
+            // After UNLOCK the STM32 reports its real position via TELEM.
+            // Sync both confirmed and target so the needle stays put.
+            if (data.actual_angle !== null && data.actual_angle !== undefined) {
+              confirmedAngle = data.actual_angle;
+              targetAngle    = data.actual_angle;
+              actualAngle    = data.actual_angle;
+              potAngle       = data.actual_angle;
+            }
             setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
-            animate();
+            // result logged via backend event "UNLOCK OK ←"
           } else {
             setStatus('alarm', 'UNLOCK NIEUDANY: ' + data.error);
+            // failure logged via backend event "UNLOCK FAIL:"
           }
         })
         .catch(e => {
@@ -592,8 +631,40 @@
     }
 
     function setStatus(type, text) {
-      document.getElementById('statusDot').className    = 'status-dot' + (type !== 'ok' ? ' ' + type : '');
+      document.getElementById('statusDot').className   = 'status-dot' + (type !== 'ok' ? ' ' + type : '');
       document.getElementById('statusText').textContent = text;
+    }
+
+    let _restartPollTimer = null;
+
+    function restartBackend() {
+      if (!confirm('Restart serwisu beko-web?\nSerwis zostanie ponownie uruchomiony (~5s przerwy.')) return;
+      const btn = document.getElementById('restartBtn');
+      btn.disabled = true;
+      btn.textContent = '↺ RESTARTUJĘ...';
+      setStatus('warn', 'RESTART — czekam na wznowienie...');
+      addLog('RESTART → serwis wyłącza się…', 'warn');
+
+      fetch('/api/restart', { method: 'POST' })
+        .catch(() => {})  // server may die before response arrives — that's fine
+        .finally(() => {
+          // Start polling every 1 s until the server responds to /api/status
+          if (_restartPollTimer) clearInterval(_restartPollTimer);
+          _restartPollTimer = setInterval(() => {
+            fetch('/api/status?after=0')
+              .then(r => r.json())
+              .then(() => {
+                clearInterval(_restartPollTimer);
+                _restartPollTimer = null;
+                lastEventId = 0;  // reset so we pick up fresh events from the new process
+                btn.disabled = false;
+                btn.textContent = '↺ RESTART SERWISU';
+                setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
+                addLog('RESTART OK — serwis wznowiony', 'ok');
+              })
+              .catch(() => {});  // still down — keep polling
+          }, 1000);
+        });
     }
 
     let logLines = [];
@@ -608,27 +679,40 @@
         .join('');
     }
 
+    /* init — read angle once from backend, then never again */
     addLog('system uruchomiony', 'ok');
     addLog('węzeł BEKO-01 aktywny', 'ok');
-    updateUI();
-    drawCompass();
+    fetch('/api/status?after=0')
+      .then(r => r.json())
+      .then(data => {
+        if (data.actual_angle !== null && data.actual_angle !== undefined) {
+          confirmedAngle = data.actual_angle;
+          targetAngle    = data.actual_angle;
+          actualAngle    = data.actual_angle;
+          potAngle       = data.actual_angle;
+          addLog('pozycja startowa: ' + formatDeg(data.actual_angle), 'ok');
+        }
+        updateUI();
+        drawCompass();
+      })
+      .catch(() => { updateUI(); drawCompass(); });
+
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawCompass);
 
-    // ── Status polling 500 ms ─────────────────────────────────────────────────
+    // ── Status polling (500 ms) ────────────────────────────────────────────────
+    // Angles are tracked locally only — poll never touches any angle variable.
     setInterval(() => {
       fetch('/api/status?after=' + lastEventId)
         .then(r => r.json())
         .then(data => {
-          if (data.actual_angle !== null && data.actual_angle !== undefined) {
-            actualAngle = data.actual_angle;
-            potAngle    = data.actual_angle;
-          }
-
+          // Append backend events to the log panel
           (data.events || []).forEach(e => {
             addLog(e.msg, e.kind);
             if (e.id > lastEventId) lastEventId = e.id;
           });
 
+          // Edge-detect alarm for status dot + stopped flag
+          // (the log entry itself comes via backend event)
           if (data.alarm && !lastAlarmState) {
             lastAlarmState = true;
             stopped = true;
@@ -638,6 +722,7 @@
             lastAlarmState = false;
           }
 
+          // Update status indicator only when not in a user-triggered state
           if (!data.alarm && !stopped && !blocked) {
             if (data.state && data.state !== 'IDLE') {
               setStatus('warn', 'WYSYŁANIE...');
