@@ -55,7 +55,6 @@
       margin: 0 auto;
     }
 
-    /* ── HEADER ── */
     .header {
       border-bottom: 1px solid var(--border2);
       padding-bottom: 0.75rem;
@@ -88,7 +87,6 @@
       margin-top: 4px;
     }
 
-    /* ── LAYOUT ── */
     .main-grid {
       display: grid;
       grid-template-columns: 1fr 260px;
@@ -100,7 +98,6 @@
       .main-grid { grid-template-columns: 1fr; }
     }
 
-    /* ── COMPASS ── */
     .compass-area {
       display: flex;
       flex-direction: column;
@@ -146,7 +143,6 @@
     }
     .delta-badge.alarm { border-color: var(--red); color: var(--red); }
 
-    /* ── LOG ── */
     .log-area {
       width: 100%;
       border: 0.5px solid var(--border);
@@ -175,7 +171,6 @@
     .log-entry.warn  { color: var(--amber); }
     .log-entry.ok    { color: var(--green); }
 
-    /* ── CONTROLS ── */
     .controls-panel {
       display: flex;
       flex-direction: column;
@@ -237,7 +232,6 @@
     .go-btn:hover  { opacity: 0.8; }
     .go-btn:active { transform: scale(0.97); }
 
-    /* ── STATUS ── */
     .status-row {
       display: flex;
       align-items: center;
@@ -259,7 +253,6 @@
     @keyframes pulse-ok   { 0%,100%{opacity:1} 50%{opacity:.4} }
     @keyframes pulse-warn { 0%,100%{opacity:1} 50%{opacity:.2} }
 
-    /* ── ADC block ── */
     .adc-data {
       font-family: 'Share Tech Mono', monospace;
       font-size: 12px;
@@ -283,7 +276,6 @@
 
   <div class="main-grid">
 
-    <!-- LEFT: compass + readouts + log -->
     <div class="compass-area">
       <canvas id="compassCanvas" width="280" height="280"></canvas>
 
@@ -306,7 +298,6 @@
       </div>
     </div>
 
-    <!-- RIGHT: controls -->
     <div class="controls-panel">
 
       <div class="panel-block">
@@ -387,6 +378,7 @@
     let stopped        = false;
     let animFrame;
     let lastAlarmState = false;
+    let lastEventId    = 0;
 
     const canvas = document.getElementById('compassCanvas');
     const ctx    = canvas.getContext('2d');
@@ -395,23 +387,23 @@
 
     function getColors() {
       return isDark() ? {
-        ring:      'rgba(255,255,255,0.10)',
-        tick:      'rgba(255,255,255,0.22)',
-        tickMaj:   'rgba(255,255,255,0.50)',
-        label:     'rgba(255,255,255,0.50)',
-        needle:    '#f0ede8',
-        target:    'rgba(255,255,255,0.22)',
-        center:    '#f0ede8',
-        pot:       'rgba(93,202,165,0.75)',
+        ring:    'rgba(255,255,255,0.10)',
+        tick:    'rgba(255,255,255,0.22)',
+        tickMaj: 'rgba(255,255,255,0.50)',
+        label:   'rgba(255,255,255,0.50)',
+        needle:  '#f0ede8',
+        target:  'rgba(255,255,255,0.22)',
+        center:  '#f0ede8',
+        pot:     'rgba(93,202,165,0.75)',
       } : {
-        ring:      'rgba(0,0,0,0.08)',
-        tick:      'rgba(0,0,0,0.18)',
-        tickMaj:   'rgba(0,0,0,0.50)',
-        label:     'rgba(0,0,0,0.48)',
-        needle:    '#111111',
-        target:    'rgba(0,0,0,0.18)',
-        center:    '#111111',
-        pot:       'rgba(15,110,86,0.72)',
+        ring:    'rgba(0,0,0,0.08)',
+        tick:    'rgba(0,0,0,0.18)',
+        tickMaj: 'rgba(0,0,0,0.50)',
+        label:   'rgba(0,0,0,0.48)',
+        needle:  '#111111',
+        target:  'rgba(0,0,0,0.18)',
+        center:  '#111111',
+        pot:     'rgba(15,110,86,0.72)',
       };
     }
 
@@ -421,15 +413,13 @@
 
       ctx.beginPath();
       ctx.arc(CX, CY, R + 10, 0, Math.PI * 2);
-      ctx.strokeStyle = c.ring;
-      ctx.lineWidth = 1;
-      ctx.stroke();
+      ctx.strokeStyle = c.ring; ctx.lineWidth = 1; ctx.stroke();
 
       for (let deg = 0; deg < 360; deg += 5) {
-        const rad    = (deg - 90) * Math.PI / 180;
-        const isMaj  = deg % 30 === 0;
-        const isMed  = deg % 10 === 0;
-        const inner  = R - (isMaj ? 14 : isMed ? 8 : 4);
+        const rad   = (deg - 90) * Math.PI / 180;
+        const isMaj = deg % 30 === 0;
+        const isMed = deg % 10 === 0;
+        const inner = R - (isMaj ? 14 : isMed ? 8 : 4);
         ctx.beginPath();
         ctx.moveTo(CX + Math.cos(rad) * inner, CY + Math.sin(rad) * inner);
         ctx.lineTo(CX + Math.cos(rad) * R,     CY + Math.sin(rad) * R);
@@ -439,59 +429,48 @@
       }
 
       const dirs      = ['N','NE','E','SE','S','SW','W','NW'];
-      const dirAngles = [0, 45, 90, 135, 180, 225, 270, 315];
-      ctx.font        = '500 12px Barlow Condensed, sans-serif';
-      ctx.textAlign   = 'center';
-      ctx.textBaseline = 'middle';
+      const dirAngles = [0,45,90,135,180,225,270,315];
+      ctx.font = '500 12px Barlow Condensed, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       dirAngles.forEach((deg, i) => {
-        const rad  = (deg - 90) * Math.PI / 180;
-        const dist = R - 26;
+        const rad = (deg - 90) * Math.PI / 180;
         ctx.fillStyle = (i % 2 === 0) ? c.tickMaj : c.label;
-        ctx.fillText(dirs[i], CX + Math.cos(rad) * dist, CY + Math.sin(rad) * dist);
+        ctx.fillText(dirs[i], CX + Math.cos(rad) * (R - 26), CY + Math.sin(rad) * (R - 26));
       });
 
-      const targetRad = (targetAngle - 90) * Math.PI / 180;
+      const tRad = (targetAngle - 90) * Math.PI / 180;
       ctx.beginPath();
-      ctx.arc(CX, CY, R - 8, targetRad - 0.06, targetRad + 0.06);
-      ctx.strokeStyle = c.target;
-      ctx.lineWidth   = 8;
-      ctx.stroke();
+      ctx.arc(CX, CY, R - 8, tRad - 0.06, tRad + 0.06);
+      ctx.strokeStyle = c.target; ctx.lineWidth = 8; ctx.stroke();
       ctx.beginPath();
-      ctx.moveTo(CX + Math.cos(targetRad) * (R - 20), CY + Math.sin(targetRad) * (R - 20));
-      ctx.lineTo(CX + Math.cos(targetRad) * (R + 8),  CY + Math.sin(targetRad) * (R + 8));
-      ctx.strokeStyle = c.target;
-      ctx.lineWidth   = 1.5;
-      ctx.stroke();
+      ctx.moveTo(CX + Math.cos(tRad) * (R - 20), CY + Math.sin(tRad) * (R - 20));
+      ctx.lineTo(CX + Math.cos(tRad) * (R + 8),  CY + Math.sin(tRad) * (R + 8));
+      ctx.strokeStyle = c.target; ctx.lineWidth = 1.5; ctx.stroke();
 
-      const potRad = (potAngle - 90) * Math.PI / 180;
+      const pRad = (potAngle - 90) * Math.PI / 180;
       ctx.beginPath();
       ctx.moveTo(CX, CY);
-      ctx.lineTo(CX + Math.cos(potRad) * (R - 30), CY + Math.sin(potRad) * (R - 30));
-      ctx.strokeStyle = c.pot;
-      ctx.lineWidth   = 2;
-      ctx.stroke();
+      ctx.lineTo(CX + Math.cos(pRad) * (R - 30), CY + Math.sin(pRad) * (R - 30));
+      ctx.strokeStyle = c.pot; ctx.lineWidth = 2; ctx.stroke();
 
-      const needleRad = (actualAngle - 90) * Math.PI / 180;
-      const tipX  = CX + Math.cos(needleRad) * (R - 10);
-      const tipY  = CY + Math.sin(needleRad) * (R - 10);
-      const backX = CX + Math.cos(needleRad + Math.PI) * 20;
-      const backY = CY + Math.sin(needleRad + Math.PI) * 20;
-      const perpX = Math.cos(needleRad + Math.PI / 2) * 6;
-      const perpY = Math.sin(needleRad + Math.PI / 2) * 6;
-
+      const nRad  = (actualAngle - 90) * Math.PI / 180;
+      const tipX  = CX + Math.cos(nRad) * (R - 10);
+      const tipY  = CY + Math.sin(nRad) * (R - 10);
+      const backX = CX + Math.cos(nRad + Math.PI) * 20;
+      const backY = CY + Math.sin(nRad + Math.PI) * 20;
+      const perpX = Math.cos(nRad + Math.PI / 2) * 6;
+      const perpY = Math.sin(nRad + Math.PI / 2) * 6;
       ctx.beginPath();
       ctx.moveTo(tipX, tipY);
       ctx.lineTo(CX + perpX, CY + perpY);
       ctx.lineTo(backX, backY);
       ctx.lineTo(CX - perpX, CY - perpY);
       ctx.closePath();
-      ctx.fillStyle = c.needle;
-      ctx.fill();
+      ctx.fillStyle = c.needle; ctx.fill();
 
       ctx.beginPath();
       ctx.arc(CX, CY, 5, 0, Math.PI * 2);
-      ctx.fillStyle = c.center;
-      ctx.fill();
+      ctx.fillStyle = c.center; ctx.fill();
     }
 
     function formatDeg(n) {
@@ -520,13 +499,10 @@
     }
 
     function animate() {
-      if (stopped || blocked) { return; }
+      if (stopped || blocked) return;
       const diff = ((targetAngle - actualAngle + 540) % 360) - 180;
       if (Math.abs(diff) < 0.5) {
-        actualAngle = targetAngle;
-        potAngle    = actualAngle;
-        updateUI();
-        return;
+        actualAngle = targetAngle; potAngle = actualAngle; updateUI(); return;
       }
       const step  = Math.sign(diff) * Math.min(Math.abs(diff), 1.5);
       actualAngle = (actualAngle + step + 360) % 360;
@@ -558,10 +534,8 @@
             potAngle    = data.actual_angle;
           }
           setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
-          addLog('OK→' + formatDeg(data.actual_angle) + ' srv=' + data.servo_status, 'ok');
         } else {
           setStatus('alarm', 'BŁĄD: ' + data.error);
-          addLog('ERR: ' + data.error, 'alarm');
         }
         updateUI();
       })
@@ -571,9 +545,7 @@
       });
     }
 
-    function nudge(delta) {
-      goTo(targetAngle + delta);
-    }
+    function nudge(delta)  { goTo(targetAngle + delta); }
 
     function goAbs() {
       const v = parseInt(document.getElementById('absInput').value);
@@ -606,15 +578,11 @@
         .then(r => r.json())
         .then(data => {
           if (data.ok) {
-            blocked        = false;
-            stopped        = false;
-            lastAlarmState = false;
+            blocked = false; stopped = false; lastAlarmState = false;
             setStatus('ok', 'ŁĄCZE AKTYWNE / FSK 868 MHz');
-            addLog('alarm skasowany', 'ok');
             animate();
           } else {
             setStatus('alarm', 'UNLOCK NIEUDANY: ' + data.error);
-            addLog('UNLOCK ERR: ' + data.error, 'alarm');
           }
         })
         .catch(e => {
@@ -624,7 +592,7 @@
     }
 
     function setStatus(type, text) {
-      document.getElementById('statusDot').className   = 'status-dot' + (type !== 'ok' ? ' ' + type : '');
+      document.getElementById('statusDot').className    = 'status-dot' + (type !== 'ok' ? ' ' + type : '');
       document.getElementById('statusText').textContent = text;
     }
 
@@ -644,11 +612,11 @@
     addLog('węzeł BEKO-01 aktywny', 'ok');
     updateUI();
     drawCompass();
-
     window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', drawCompass);
 
+    // ── Status polling 500 ms ─────────────────────────────────────────────────
     setInterval(() => {
-      fetch('/api/status')
+      fetch('/api/status?after=' + lastEventId)
         .then(r => r.json())
         .then(data => {
           if (data.actual_angle !== null && data.actual_angle !== undefined) {
@@ -656,16 +624,16 @@
             potAngle    = data.actual_angle;
           }
 
+          (data.events || []).forEach(e => {
+            addLog(e.msg, e.kind);
+            if (e.id > lastEventId) lastEventId = e.id;
+          });
+
           if (data.alarm && !lastAlarmState) {
             lastAlarmState = true;
             stopped = true;
             cancelAnimationFrame(animFrame);
             setStatus('alarm', 'ALARM: ' + (data.alarm_msg || 'BŁĄD'));
-            addLog(
-              'ALARM: ' + (data.alarm_msg || '?') +
-              ' @ ' + formatDeg(data.alarm_angle || 0),
-              'alarm'
-            );
           } else if (!data.alarm) {
             lastAlarmState = false;
           }
